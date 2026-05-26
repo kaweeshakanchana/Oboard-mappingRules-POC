@@ -1,4 +1,3 @@
-import React from 'react';
 import MappingRulesScreen from './MappingRulesScreen';
 
 function App() {

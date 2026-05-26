@@ -1,10 +1,10 @@
-import React, { useState, useMemo, useEffect, useRef } from 'react';
-import yaml from 'js-yaml';
+import { useState, useMemo, useEffect, useRef } from 'react';
+import * as yaml from 'js-yaml';
 import { 
   Sparkles, Plus, ArrowUp, ArrowDown, Upload, Download, Play, 
-  Check, AlertTriangle, X, ChevronRight, Info, FileText, 
-  CheckCircle2, XCircle, AlertCircle, Calendar, Hash, Folder, 
-  Terminal, ShieldCheck, HelpCircle, Eye, EyeOff, Settings, Search
+  Check, AlertTriangle, ChevronRight, Info, FileText, 
+  CheckCircle2, XCircle, AlertCircle, Hash, Folder, 
+  Terminal, ShieldCheck, Settings, Search, Sliders
 } from 'lucide-react';
 
 // ============================================================================
@@ -423,7 +423,7 @@ function matchRules(files, rules, fallbackTarget) {
           if (!regex.test(file.path)) {
             matchesAllDefined = false;
           }
-        } catch (e) {
+        } catch {
           // Invalid regex in rule
           matchesAllDefined = false;
         }
@@ -546,7 +546,7 @@ function matchRules(files, rules, fallbackTarget) {
 export default function MappingRulesScreen() {
   const [rules, setRules] = useState(INITIAL_RULES);
   const [selectedRuleId, setSelectedRuleId] = useState(INITIAL_RULES[0].rule_id);
-  const [scannedFiles, setScannedFiles] = useState(INITIAL_SCANNED_FILES);
+  const [scannedFiles] = useState(INITIAL_SCANNED_FILES);
   const [testResults, setTestResults] = useState(null);
   const [conflicts, setConflicts] = useState([]);
   
@@ -568,6 +568,7 @@ export default function MappingRulesScreen() {
   const [testingProgress, setTestingProgress] = useState(false);
   const [agentLoading, setAgentLoading] = useState(false);
   const [agentSuggestion, setAgentSuggestion] = useState(null);
+  const [threadId, setThreadId] = useState(null);
   const [toast, setToast] = useState(null);
 
   const fileInputRef = useRef(null);
@@ -599,8 +600,10 @@ export default function MappingRulesScreen() {
           enabled: selectedRule.enabled
         };
         const dump = yaml.dump(cleanRule, { indent: 2 });
-        setYamlInput(dump);
-        setYamlError(null);
+        setTimeout(() => {
+          setYamlInput(dump);
+          setYamlError(null);
+        }, 0);
       } catch (err) {
         console.error(err);
       }
@@ -644,95 +647,158 @@ export default function MappingRulesScreen() {
   // ============================================================================
 
   // 1. Generate Rules (Agent) Simulation (Step 5.1 & Step 6)
-  const triggerAgentGeneration = () => {
+  const triggerAgentGeneration = async () => {
     setAgentLoading(true);
-    setTimeout(() => {
-      setAgentLoading(false);
-      setAgentSuggestion({
-        what: "Generate 3 Mapping Rules from Scan Results",
-        why: "Analyzed directories and filenames. Detected high-frequency path signatures matching administrative committees.",
-        confidence: 87,
-        impact: { creates: [{ object_type: "MappingRule", count: 3 }] },
-        proposedRules: [
-          {
-            rule_id: "R-AGT-1",
-            priority: 7,
-            name: "AI Generated: Subsidiary A Finance Minutes",
-            match: {
-              path_regex: ".*/SubsA/Finance/Minutes_.*\\.xlsx",
-              title_contains_any: ["Minutes"],
-              folder_tags: ["finance", "minutes"],
-              date_range: null
-            },
-            target: {
-              org_key: "SUBSIDIARY_A",
-              body_key: "FINANCE_COMM",
-              doc_class: "MINUTES"
-            },
-            conflict_strategy: "highest_priority",
-            enabled: true,
-            confidence: 91
-          },
-          {
-            rule_id: "R-AGT-2",
-            priority: 8,
-            name: "AI Generated: Parent Co Audit Working Papers",
-            match: {
-              path_regex: ".*/AuditCommittee/WorkPapers/.*",
-              title_contains_any: ["WP_", "WorkingPaper"],
-              folder_tags: ["audit", "working-paper"],
-              date_range: null
-            },
-            target: {
-              org_key: "PARENT_CO",
-              body_key: "AUDIT_COMM",
-              doc_class: "WORKPAPERS"
-            },
-            conflict_strategy: "highest_priority",
-            enabled: true,
-            confidence: 85
-          },
-          {
-            rule_id: "R-AGT-3",
-            priority: 9,
-            name: "AI Generated: Parent Co Board Resolutions",
-            match: {
-              path_regex: ".*/ParentCo/Resolutions/.*\\.pdf",
-              title_contains_any: ["Resolution", "Res_"],
-              folder_tags: ["board", "resolutions"],
-              date_range: null
-            },
-            target: {
-              org_key: "PARENT_CO",
-              body_key: "BOARD_OF_DIR",
-              doc_class: "RESOLUTIONS"
-            },
-            conflict_strategy: "highest_priority",
-            enabled: true,
-            confidence: 88
-          }
-        ]
+    try {
+      const response = await fetch('http://localhost:8000/api/agent/initialize', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          scanned_files: scannedFiles,
+          rules: rules,
+          global_fallback: globalFallback
+        })
       });
-      showToast("AI suggestion ready. Review suggestion card in left panel.", "info");
-    }, 1500);
+      if (!response.ok) throw new Error("Backend initialize request failed");
+      const data = await response.json();
+      setThreadId(data.thread_id);
+      setAgentSuggestion(data.agent_suggestion);
+      setTestResults(data.test_results);
+      setConflicts(data.conflicts);
+      showToast("Agent rules compiled. Review proposed rules in left panel.", "success");
+    } catch (err) {
+      console.warn("Backend not active. Running simulation fallback engine.", err);
+      // Premium Simulation Fallback
+      setTimeout(() => {
+        setAgentSuggestion({
+          what: "Generate 3 Mapping Rules (Sandbox Mode)",
+          why: "FASTAPI backend not detected on port 8000. Running in browser client-side sandbox mode.",
+          confidence: 87,
+          proposedRules: [
+            {
+              rule_id: "R-AGT-1",
+              priority: rules.length + 1,
+              name: "AI Generated: Subsidiary A Finance Minutes",
+              match: {
+                path_regex: ".*/SubsA/Finance/Minutes_.*\\.xlsx",
+                title_contains_any: ["Minutes"],
+                folder_tags: ["finance", "minutes"],
+                date_range: null
+              },
+              target: {
+                org_key: "SUBSIDIARY_A",
+                body_key: "FINANCE_COMM",
+                doc_class: "MINUTES"
+              },
+              conflict_strategy: "highest_priority",
+              enabled: true,
+              confidence: 91
+            },
+            {
+              rule_id: "R-AGT-2",
+              priority: rules.length + 2,
+              name: "AI Generated: Parent Co Audit Working Papers",
+              match: {
+                path_regex: ".*/AuditCommittee/WorkPapers/.*",
+                title_contains_any: ["WP_", "WorkingPaper"],
+                folder_tags: ["audit", "working-paper"],
+                date_range: null
+              },
+              target: {
+                org_key: "PARENT_CO",
+                body_key: "AUDIT_COMM",
+                doc_class: "WORKPAPERS"
+              },
+              conflict_strategy: "highest_priority",
+              enabled: true,
+              confidence: 85
+            },
+            {
+              rule_id: "R-AGT-3",
+              priority: rules.length + 3,
+              name: "AI Generated: Parent Co Board Resolutions",
+              match: {
+                path_regex: ".*/ParentCo/Resolutions/.*\\.pdf",
+                title_contains_any: ["Resolution", "Res_"],
+                folder_tags: ["board", "resolutions"],
+                date_range: null
+              },
+              target: {
+                org_key: "PARENT_CO",
+                body_key: "BOARD_OF_DIR",
+                doc_class: "RESOLUTIONS"
+              },
+              conflict_strategy: "highest_priority",
+              enabled: true,
+              confidence: 88
+            }
+          ]
+        });
+        showToast("Sandbox rules ready. Review suggestion card in left panel.", "info");
+      }, 1200);
+    } finally {
+      setAgentLoading(false);
+    }
   };
 
-  const approveAgentSuggestion = () => {
+  const approveAgentSuggestion = async () => {
     if (!agentSuggestion) return;
+    
+    if (threadId) {
+      try {
+        const response = await fetch(`http://localhost:8000/api/agent/approve?thread_id=${threadId}`, {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ feedback: 'approved' })
+        });
+        if (!response.ok) throw new Error("Backend approval failed");
+        const data = await response.json();
+        setRules(data.rules);
+        setTestResults(data.test_results);
+        setConflicts(data.conflicts);
+        setSelectedRuleId(data.rules[data.rules.length - 3]?.rule_id || data.rules[0]?.rule_id);
+        setAgentSuggestion(null);
+        setThreadId(null);
+        showToast("Approved! Rules integrated via LangGraph agent state.", "success");
+        return;
+      } catch (err) {
+        console.warn("Backend error. Falling back to sandbox resolver.", err);
+      }
+    }
     
     // De-duplicate priority shifts
     let updatedRules = [...rules];
     agentSuggestion.proposedRules.forEach(newRule => {
+      newRule.isSuggested = false;
       updatedRules = insertAndNormalizePriority(updatedRules, newRule);
     });
 
     setRules(updatedRules);
     setSelectedRuleId(agentSuggestion.proposedRules[0].rule_id);
     setAgentSuggestion(null);
-    showToast("Approved! AI rules integrated with confidence ratings.", "success");
+    showToast("Approved in Sandbox! Rules integrated with local priority shifting.", "success");
   };
 
-  const rejectAgentSuggestion = () => {
+  const rejectAgentSuggestion = async () => {
+    if (threadId) {
+      try {
+        const response = await fetch(`http://localhost:8000/api/agent/reject?thread_id=${threadId}`, {
+          method: 'POST'
+        });
+        if (!response.ok) throw new Error("Backend reject failed");
+        const data = await response.json();
+        setRules(data.rules);
+        setTestResults(data.test_results);
+        setConflicts(data.conflicts);
+        setAgentSuggestion(null);
+        setThreadId(null);
+        showToast("AI rule suggestions dismissed by LangGraph agent.", "warning");
+        return;
+      } catch (err) {
+        console.warn("Backend error. Falling back to sandbox reject.", err);
+      }
+    }
+    
     setAgentSuggestion(null);
     showToast("AI rule suggestions dismissed.", "warning");
   };
@@ -822,7 +888,7 @@ export default function MappingRulesScreen() {
             enabled: rowObj.enabled === 'true' || rowObj.enabled === '1'
           });
           parsedCount++;
-        } catch (err) {
+        } catch {
           errorCount++;
         }
       }
@@ -891,29 +957,50 @@ export default function MappingRulesScreen() {
   };
 
   // 4. Test Against Scan Results Execution (Step 5.4)
-  const runTestHarness = () => {
+  const runTestHarness = async () => {
     setTestingProgress(true);
-    // Simulate slight lag for a realistic enterprise computation feel
-    setTimeout(() => {
-      const { testResults: results, conflicts: confList } = matchRules(scannedFiles, rules, globalFallback);
-      setTestResults(results);
-      setConflicts(confList);
+    try {
+      const response = await fetch('http://localhost:8000/api/rules/test', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          scanned_files: scannedFiles,
+          rules: rules,
+          global_fallback: globalFallback
+        })
+      });
+      if (!response.ok) throw new Error("Backend test harness execution failed");
+      const data = await response.json();
+      setTestResults(data.test_results);
+      setConflicts(data.conflicts);
+      showToast("Testing completed via Python Matching Engine backend.", "success");
+    } catch (err) {
+      console.warn("Backend matching server offline. running browser local sandbox matchRules.", err);
+      
+      // Sandbox Fallback matching engine
+      setTimeout(() => {
+        const { testResults: results, conflicts: confList } = matchRules(scannedFiles, rules, globalFallback);
+        setTestResults(results);
+        setConflicts(confList);
+        
+        const matchesCount = results.filter(r => r.status === 'matched' || r.status === 'fallback').length;
+        if (matchesCount === 0) {
+          showToast("Warning: 100% no-match rate in Sandbox. Check regex rules.", "warning");
+        } else {
+          showToast("Testing completed via Sandbox Local Engine.", "success");
+        }
+      }, 600);
+    } finally {
       setTestingProgress(false);
-
-      // Check if 100% no-match rate (Step 7.4)
-      const matchesCount = results.filter(r => r.status === 'matched' || r.status === 'fallback').length;
-      if (matchesCount === 0) {
-        showToast("Warning: 100% no-match rate. Check regex rules syntax.", "warning");
-      } else {
-        showToast(`Testing completed. Sorted matches, conflicts, and fallback routing.`, "success");
-      }
-
+      
       // Smooth scroll to results
-      const elem = document.getElementById("test-harness-anchor");
-      if (elem) {
-        elem.scrollIntoView({ behavior: 'smooth', block: 'start' });
-      }
-    }, 800);
+      setTimeout(() => {
+        const elem = document.getElementById("test-harness-anchor");
+        if (elem) {
+          elem.scrollIntoView({ behavior: 'smooth', block: 'start' });
+        }
+      }, 200);
+    }
   };
 
   // 5. Enable All Rules Toggle (Step 5.5)
@@ -1248,7 +1335,7 @@ export default function MappingRulesScreen() {
                 <p className="text-[10px] text-gov-600 mt-1">Import from CSV or use the Agent builder to populate.</p>
               </div>
             ) : (
-              rules.map((rule, index) => {
+              rules.map((rule) => {
                 const isSelected = rule.rule_id === selectedRuleId;
                 const isTargetValid = VALID_MAPPINGS.includes(`${rule.target.org_key}:${rule.target.body_key}:${rule.target.doc_class}`);
                 
@@ -1890,7 +1977,6 @@ export default function MappingRulesScreen() {
 
           <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
             {conflicts.map((conf, index) => {
-              const fileResults = testResults.find(t => t.file_id === conf.file_id);
               const winningRuleObj = rules.find(r => r.rule_id === conf.winner_rule_id);
               
               return (
