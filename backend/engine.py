@@ -1,6 +1,6 @@
 import re
 from typing import List, Dict, Tuple, Any
-from .schema import MappingRule, ScannedFile, TestResult, ConflictRecord, Target
+from schema import MappingRule, ScannedFile, TestResult, ConflictRecord, Target
 
 def match_rules(
     files: List[ScannedFile], 

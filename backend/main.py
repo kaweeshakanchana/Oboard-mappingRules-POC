@@ -3,8 +3,8 @@ from fastapi import FastAPI, HTTPException, Query
 from fastapi.middleware.cors import CORSMiddleware
 from typing import Dict, Any
 
-from .schema import InitializeRequest, ApproveRequest, MappingRule, TestResult, ConflictRecord
-from .agent import compiled_agent, match_rules
+from schema import InitializeRequest, ApproveRequest, MappingRule, TestResult, ConflictRecord
+from agent import compiled_agent, match_rules
 
 app = FastAPI(
     title="PryGov Suite - Legacy Onboarding Agent Backend",

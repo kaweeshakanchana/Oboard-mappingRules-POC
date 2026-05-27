@@ -8,8 +8,8 @@ from langgraph.checkpoint.memory import MemorySaver
 from langchain_core.messages import SystemMessage, HumanMessage
 from pydantic import BaseModel as LCPydanticBase, Field as LCField
 
-from .schema import MappingRule, ScannedFile, TestResult, ConflictRecord, AgentSuggestion, Target, MatchCriteria
-from .engine import match_rules
+from schema import MappingRule, ScannedFile, TestResult, ConflictRecord, AgentSuggestion, Target, MatchCriteria
+from engine import match_rules
 
 # ============================================================================
 # 1. LANGGRAPH STATE DEFINITION
