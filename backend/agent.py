@@ -6,7 +6,7 @@ from langgraph.checkpoint.memory import MemorySaver
 
 # Langchain / Google imports
 from langchain_core.messages import SystemMessage, HumanMessage
-from langchain_core.pydantic_v1 import BaseModel as LCPydanticBase, Field as LCField
+from pydantic import BaseModel as LCPydanticBase, Field as LCField
 
 from .schema import MappingRule, ScannedFile, TestResult, ConflictRecord, AgentSuggestion, Target, MatchCriteria
 from .engine import match_rules
