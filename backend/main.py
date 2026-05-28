@@ -90,7 +90,7 @@ def approve_agent_suggestion(thread_id: str = Query(...), payload: ApproveReques
         current_rules = list(current_state.get("rules", []))
         
         # Shift and append each proposed rule
-        for new_rule in suggestion.proposed_rules:
+        for new_rule in suggestion.proposedRules:
             # Strip suggested flag
             new_rule.isSuggested = False
             current_rules = insert_and_normalize_priority(current_rules, new_rule)

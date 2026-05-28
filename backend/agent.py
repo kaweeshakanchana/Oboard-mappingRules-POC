@@ -106,7 +106,7 @@ def generate_rules(state: AgentState):
                         body_key=r.target_body_key,
                         doc_class=r.doc_class
                     ),
-                    conflict_strategy=r.conflict_strategy,
+                    conflict_strategy=r.conflict_strategy, 
                     enabled=True,
                     isSuggested=True,
                     confidence=response.confidence
